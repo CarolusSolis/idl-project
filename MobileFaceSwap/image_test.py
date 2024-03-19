@@ -29,11 +29,11 @@ def image_test(args):
     faceswap_model = FaceSwap(args.use_gpu)
 
     id_net = ResNet(block=IRBlock, layers=[3, 4, 23, 3])
-    id_net.set_dict(paddle.load('./checkpoints/arcface.pdparams'))
+    id_net.set_dict(paddle.load(os.path.join(os.path.dirname(__file__), 'checkpoints/arcface.pdparams')))
 
     id_net.eval()
 
-    weight = paddle.load('./checkpoints/MobileFaceSwap_224.pdparams')
+    weight = paddle.load(os.path.join(os.path.dirname(__file__), 'checkpoints/MobileFaceSwap_224.pdparams'))
 
     base_path = args.source_img_path.replace('.png', '').replace('.jpg', '').replace('.jpeg', '')
     id_emb, id_feature = get_id_emb(id_net, base_path + '_aligned.png')
@@ -90,11 +90,12 @@ if __name__ == '__main__':
     parser.add_argument('--merge_result', type=bool, default=True, help='output with whole image')
     parser.add_argument('--need_align', type=bool, default=True, help='need to align the image')
     parser.add_argument('--use_gpu', type=bool, default=False)
+    parser.add_argument('--model_path', type=str, default='./checkpoints', help='path to the model')
 
 
     args = parser.parse_args()
     if args.need_align:
-        landmarkModel = LandmarkModel(name='landmarks')
+        landmarkModel = LandmarkModel(name='landmarks', root=args.model_path)
         landmarkModel.prepare(ctx_id= 0, det_thresh=0.6, det_size=(640,640))
         face_align(landmarkModel, args.source_img_path)
         face_align(landmarkModel, args.target_img_path, args.merge_result, args.image_size)
