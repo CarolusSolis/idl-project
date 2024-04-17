@@ -20,6 +20,7 @@ import torch
 import torch.nn.functional as F
 from torch.backends import cudnn
 import torch.utils.tensorboard as tensorboard
+import wandb
 
 from util import util
 from util.plot import plot_batch
@@ -29,6 +30,10 @@ from data.data_loader_Swapping import GetLoader
 
 def str2bool(v):
     return v.lower() in ('true')
+
+
+WANDB_KEY = '3f674397977c6a462e26bf171b666644dcdefae7'
+wandb.login(key=WANDB_KEY)
 
 class TrainOptions:
     def __init__(self):
@@ -46,6 +51,10 @@ class TrainOptions:
 
         # for displays
         self.parser.add_argument('--use_tensorboard', type=str2bool, default='False')
+        self.parser.add_argument('--use_wandb', type=str2bool, default='False')
+        self.parser.add_argument('--wandb_run_name', type=str, default='simswap-training')
+        self.parser.add_argument('--wandb_id', type=str, default='None')
+        self.parser.add_argument('--wandb_project', type=str, default='idl-project')
 
         # for training
         self.parser.add_argument('--dataset', type=str, default="/path/to/VGGFace2", help='path to the face swapping dataset')
@@ -69,9 +78,6 @@ class TrainOptions:
         self.parser.add_argument("--log_frep", type=int, default=200, help='frequence for printing log information')
         self.parser.add_argument("--sample_freq", type=int, default=1000, help='frequence for sampling')
         self.parser.add_argument("--model_freq", type=int, default=10000, help='frequence for saving the model')
-
-        
-
 
         self.isTrain = True
         
@@ -105,6 +111,14 @@ class TrainOptions:
 if __name__ == '__main__':
 
     opt         = TrainOptions().parse()
+
+    # Initialize Wandb
+    if opt.use_wandb:
+        if opt.wandb_id.lower() == 'none':  # no previous run, start a new one
+            wandb.init(project=opt.wandb_project, name=opt.wandb_run_name, reinit=True, resume="allow", config=vars(opt))
+        else:  # resume from a previous run
+            wandb.init(project=opt.wandb_project, name=opt.wandb_run_name, reinit=True, resume="allow", config=vars(opt), id=opt.wandb_id)
+
     iter_path   = os.path.join(opt.checkpoints_dir, opt.name, 'iter.txt')
 
     sample_path = os.path.join(opt.checkpoints_dir, opt.name, 'samples')
@@ -271,6 +285,8 @@ if __name__ == '__main__':
             if opt.use_tensorboard:
                 for tag, value in errors.items():
                     logger.add_scalar(tag, value, step)
+            if opt.use_wandb:
+                wandb.log(errors, step=step)
             message = '( step: %d, ) ' % (step)
             for k, v in errors.items():
                 message += '%s: %.3f ' % (k, v)
@@ -313,4 +329,3 @@ if __name__ == '__main__':
             print('saving the latest model (steps %d)' % (step+1))
             model.save(step+1)            
             np.savetxt(iter_path, (step+1, total_step), delimiter=',', fmt='%d')
-    wandb.finish()
