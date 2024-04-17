@@ -175,55 +175,81 @@ if __name__ == '__main__':
 
     # Training Cycle
     for step in range(start, total_step):
+        # Set the Generator model to training mode.
         model.netG.train()
+        
+        # The outer loop runs for a specified number of training steps.
         for interval in range(2):
+            # Shuffle the indexes for the source images to ensure randomness.
             random.shuffle(randindex)
-            src_image1, src_image2  = train_loader.next()
+            # Load the next batch of source images from the training loader.
+            # src_image1: target image, src_image2: source image
+            src_image1, src_image2 = train_loader.next()
             
-            if step%2 == 0:
+            # If it's an even step, use the second batch of source images directly.
+            # Otherwise, shuffle this batch to add variability to the training data.
+            if step % 2 == 0:
                 img_id = src_image2
             else:
                 img_id = src_image2[randindex]
 
-            img_id_112      = F.interpolate(img_id,size=(112,112), mode='bicubic')
-            latent_id       = model.netArc(img_id_112)
-            latent_id       = F.normalize(latent_id, p=2, dim=1)
+            # Resize images for the identity embedding network.
+            img_id_112 = F.interpolate(img_id, size=(112,112), mode='bicubic')
+            # Pass the resized source images through the ArcFace model to obtain identity embeddings.
+            latent_id = model.netArc(img_id_112)
+            # Normalize the embeddings to ensure they lie on a hypersphere, which is
+            # beneficial for training stability and performance.
+            latent_id = F.normalize(latent_id, p=2, dim=1)
+            
+            # If it's the second interval, train the Discriminator.
             if interval:
-                
-                img_fake        = model.netG(src_image1, latent_id)
-                gen_logits,_    = model.netD(img_fake.detach(), None)
-                loss_Dgen       = (F.relu(torch.ones_like(gen_logits) + gen_logits)).mean()
+                # Generate fake result images using the Generator model.
+                img_fake = model.netG(src_image1, latent_id)
+                # Classify the fake images using the Discriminator and compute the loss.
+                gen_logits, _ = model.netD(img_fake.detach(), None)
+                loss_Dgen = (F.relu(torch.ones_like(gen_logits) + gen_logits)).mean()
 
-                real_logits,_   = model.netD(src_image2,None)
-                loss_Dreal      = (F.relu(torch.ones_like(real_logits) - real_logits)).mean()
+                # Compute the Discriminator's loss on the real images.
+                real_logits, _ = model.netD(src_image2, None)
+                loss_Dreal = (F.relu(torch.ones_like(real_logits) - real_logits)).mean()
 
-                loss_D          = loss_Dgen + loss_Dreal
+                # The total Discriminator loss is the sum of the losses on the fake and real images.
+                loss_D = loss_Dgen + loss_Dreal
+                # Zero the gradients of the Discriminator optimizer before backpropagation.
                 optimizer_D.zero_grad()
+                # Backpropagate the loss to update the Discriminator weights.
                 loss_D.backward()
                 optimizer_D.step()
             else:
+                # Train the Generator.
+                img_fake = model.netG(src_image1, latent_id)
                 
-                # model.netD.requires_grad_(True)
-                img_fake        = model.netG(src_image1, latent_id)
-                # G loss
-                gen_logits,feat = model.netD(img_fake, None)
+                # Compute the Generator loss based on the Discriminator's output.
+                gen_logits, feat = model.netD(img_fake, None)
+                loss_Gmain = (-gen_logits).mean()
                 
-                loss_Gmain      = (-gen_logits).mean()
-                img_fake_down   = F.interpolate(img_fake, size=(112,112), mode='bicubic')
-                latent_fake     = model.netArc(img_fake_down)
-                latent_fake     = F.normalize(latent_fake, p=2, dim=1)
-                loss_G_ID       = (1 - model.cosin_metric(latent_fake, latent_id)).mean()
-                real_feat       = model.netD.get_feature(src_image1)
-                feat_match_loss = model.criterionFeat(feat["3"],real_feat["3"]) 
-                loss_G          = loss_Gmain + loss_G_ID * opt.lambda_id + feat_match_loss * opt.lambda_feat
+                # Downsample the generated images and compute the embeddings to match the identity.
+                img_fake_down = F.interpolate(img_fake, size=(112,112), mode='bicubic')
+                latent_fake = model.netArc(img_fake_down)
+                latent_fake = F.normalize(latent_fake, p=2, dim=1)
+                # Identity loss measures how close the generated identity is to the source.
+                loss_G_ID = (1 - model.cosin_metric(latent_fake, latent_id)).mean()
                 
+                # Compute feature matching loss to make sure the features are similar.
+                real_feat = model.netD.get_feature(src_image1)
+                feat_match_loss = model.criterionFeat(feat["3"], real_feat["3"])
+                
+                # Total Generator loss combines main loss, identity loss, and feature matching loss.
+                loss_G = loss_Gmain + loss_G_ID * opt.lambda_id + feat_match_loss * opt.lambda_feat
+                
+                # Every other step, compute the reconstruction loss to ensure image quality.
+                if step % 2 == 0:
+                    loss_G_Rec = model.criterionRec(img_fake, src_image1) * opt.lambda_rec
+                    loss_G += loss_G_Rec
 
-                if step%2 == 0:
-                    #G_Rec
-                    loss_G_Rec  = model.criterionRec(img_fake, src_image1) * opt.lambda_rec
-                    loss_G      += loss_G_Rec
-
+                # Zero the gradients of the Generator optimizer before backpropagation.
                 optimizer_G.zero_grad()
+                # Backpropagate the total Generator loss to update the Generator weights.
                 loss_G.backward()
                 optimizer_G.step()
                 
