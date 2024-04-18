@@ -32,9 +32,6 @@ def str2bool(v):
     return v.lower() in ('true')
 
 
-WANDB_KEY = '3f674397977c6a462e26bf171b666644dcdefae7'
-wandb.login(key=WANDB_KEY)
-
 class TrainOptions:
     def __init__(self):
         self.parser = argparse.ArgumentParser()
@@ -55,6 +52,7 @@ class TrainOptions:
         self.parser.add_argument('--wandb_run_name', type=str, default='simswap-training')
         self.parser.add_argument('--wandb_id', type=str, default='None')
         self.parser.add_argument('--wandb_project', type=str, default='idl-project')
+        self.parser.add_argument('--wandb_key', type=str, default='None')
 
         # for training
         self.parser.add_argument('--dataset', type=str, default="/path/to/VGGFace2", help='path to the face swapping dataset')
@@ -114,6 +112,7 @@ if __name__ == '__main__':
 
     # Initialize Wandb
     if opt.use_wandb:
+        wandb.login(key=opt.wandb_key)
         if opt.wandb_id.lower() == 'none':  # no previous run, start a new one
             wandb.init(project=opt.wandb_project, name=opt.wandb_run_name, reinit=True, resume="allow", config=vars(opt))
         else:  # resume from a previous run
