@@ -112,6 +112,8 @@ if __name__ == '__main__':
 
     # Initialize Wandb
     if opt.use_wandb:
+        if opt.wandb_key.lower() == 'none':
+            raise ValueError("Please provide a valid Wandb API key")
         wandb.login(key=opt.wandb_key)
         if opt.wandb_id.lower() == 'none':  # no previous run, start a new one
             wandb.init(project=opt.wandb_project, name=opt.wandb_run_name, reinit=True, resume="allow", config=vars(opt))
