@@ -5,6 +5,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 
 import torch
 import torch.nn as nn
+from transformers import CvtConfig, CvtModel
 
 
 class InstanceNorm(nn.Module):
@@ -36,9 +37,9 @@ class ApplyStyle(nn.Module):
         style = style.view(shape)    # [batch_size, 2, n_channels, ...]
         #x = x * (style[:, 0] + 1.) + style[:, 1]
         x = x * (style[:, 0] * 1 + 1.) + style[:, 1] * 1
-        return x
+        return x    # [batch_size, n_channels, ...]
 
-class ResnetBlock_Adain(nn.Module):
+class ResnetBlock_Adain(nn.Module): # TODO: see if can replace by ECA module
     def __init__(self, dim, latent_size, padding_type, activation=nn.ReLU(True)):
         super(ResnetBlock_Adain, self).__init__()
 
@@ -108,12 +109,13 @@ class Generator_Adain_Upsample(nn.Module):
             self.down4 = nn.Sequential(nn.Conv2d(512, 512, kernel_size=3, stride=2, padding=1),
                                        norm_layer(512), activation)
 
-        ### resnet blocks
-        BN = []
-        for i in range(n_blocks):
-            BN += [
-                ResnetBlock_Adain(512, latent_size=latent_size, padding_type=padding_type, activation=activation)]
-        self.BottleNeck = nn.Sequential(*BN)
+        ### CViT blocks
+        # TODO: modify the config to suit our needs
+        self.cvt_config = CvtConfig()
+        self.cvt_model = CvtModel(self.cvt_config)
+
+        # Replace the existing bottleneck setup with CvT integration
+        self.bottleneck = self.cvt_model
 
         if self.deep:
             self.up4 = nn.Sequential(
