@@ -109,13 +109,12 @@ class Generator_Adain_Upsample(nn.Module):
             self.down4 = nn.Sequential(nn.Conv2d(512, 512, kernel_size=3, stride=2, padding=1),
                                        norm_layer(512), activation)
 
-        ### CViT blocks
-        # TODO: modify the config to suit our needs
-        self.cvt_config = CvtConfig()
-        self.cvt_model = CvtModel(self.cvt_config)
-
-        # Replace the existing bottleneck setup with CvT integration
-        self.bottleneck = self.cvt_model
+        ### resnet blocks
+        BN = []
+        for i in range(n_blocks):
+            BN += [
+                ResnetBlock_Adain(512, latent_size=latent_size, padding_type=padding_type, activation=activation)]
+        self.BottleNeck = nn.Sequential(*BN)
 
         if self.deep:
             self.up4 = nn.Sequential(
