@@ -5,7 +5,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 
 import torch
 import torch.nn as nn
-from transformers import CvtConfig, CvtModel
+from .eca_module import eca_layer
 
 
 class InstanceNorm(nn.Module):
@@ -39,8 +39,8 @@ class ApplyStyle(nn.Module):
         x = x * (style[:, 0] * 1 + 1.) + style[:, 1] * 1
         return x    # [batch_size, n_channels, ...]
 
-class ResnetBlock_Adain(nn.Module): # TODO: see if can replace by ECA module
-    def __init__(self, dim, latent_size, padding_type, activation=nn.ReLU(True)):
+class ResnetBlock_Adain(nn.Module):
+    def __init__(self, dim, latent_size, padding_type, activation=nn.ReLU(True), k_size=3):
         super(ResnetBlock_Adain, self).__init__()
 
         p = 0
@@ -53,8 +53,9 @@ class ResnetBlock_Adain(nn.Module): # TODO: see if can replace by ECA module
             p = 1
         else:
             raise NotImplementedError('padding [%s] is not implemented' % padding_type)
-        conv1 += [nn.Conv2d(dim, dim, kernel_size=3, padding = p), InstanceNorm()]
+        conv1 += [nn.Conv2d(dim, dim, kernel_size=3, padding=p), nn.InstanceNorm2d(dim)]
         self.conv1 = nn.Sequential(*conv1)
+        self.eca1 = eca_layer(dim, k_size)  # ECA layer added here
         self.style1 = ApplyStyle(latent_size, dim)
         self.act1 = activation
 
@@ -68,17 +69,21 @@ class ResnetBlock_Adain(nn.Module): # TODO: see if can replace by ECA module
             p = 1
         else:
             raise NotImplementedError('padding [%s] is not implemented' % padding_type)
-        conv2 += [nn.Conv2d(dim, dim, kernel_size=3, padding=p), InstanceNorm()]
+        conv2 += [nn.Conv2d(dim, dim, kernel_size=3, padding=p), nn.InstanceNorm2d(dim)]
         self.conv2 = nn.Sequential(*conv2)
+        self.eca2 = eca_layer(dim, k_size)  # Another ECA layer added here
         self.style2 = ApplyStyle(latent_size, dim)
-
 
     def forward(self, x, dlatents_in_slice):
         y = self.conv1(x)
+        y = self.eca1(y)  # Apply ECA layer after the first convolution block
         y = self.style1(y, dlatents_in_slice)
         y = self.act1(y)
+        
         y = self.conv2(y)
+        y = self.eca2(y)  # Apply ECA layer after the second convolution block
         y = self.style2(y, dlatents_in_slice)
+        
         out = x + y
         return out
 
