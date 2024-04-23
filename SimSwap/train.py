@@ -22,6 +22,9 @@ from torch.backends import cudnn
 import torch.utils.tensorboard as tensorboard
 import wandb
 
+from torchvision.models import vgg19
+
+
 from util import util
 from util.plot import plot_batch
 
@@ -30,6 +33,17 @@ from data.data_loader_Swapping import GetLoader
 
 def str2bool(v):
     return v.lower() in ('true')
+
+# Load pre-trained VGG model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+vgg = vgg19(pretrained=True).features
+vgg = torch.nn.Sequential(*list(vgg.children())[:35]).eval().to(device)  # Use first 35 layers for perceptual loss
+
+# define perceptual loss function
+def perceptual_loss(x,y):
+  x_features = vgg(x)
+  y_features = vgg(y)
+  return F.mse_loss(x_features, y_features)
 
 
 class TrainOptions:
@@ -253,9 +267,13 @@ if __name__ == '__main__':
                 # Compute feature matching loss to make sure the features are similar.
                 real_feat = model.netD.get_feature(src_image1)
                 feat_match_loss = model.criterionFeat(feat["3"], real_feat["3"])
+
+                # Compute a perceptual loss
+                perceptual_loss_value = perceptual_loss(img_fake, src_image1)
                 
                 # Total Generator loss combines main loss, identity loss, and feature matching loss.
-                loss_G = loss_Gmain + loss_G_ID * opt.lambda_id + feat_match_loss * opt.lambda_feat
+                loss_G = loss_Gmain + (loss_G_ID * opt.lambda_id) + (feat_match_loss * opt.lambda_feat) + perceptual_loss_value
+   
                 
                 # Every other step, compute the reconstruction loss to ensure image quality.
                 if step % 2 == 0:
