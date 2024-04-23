@@ -44,7 +44,7 @@ class fsModel(BaseModel):
         self.netG.cuda()
 
         # Id network
-        netArc_checkpoint = opt.Arc_path
+        netArc_checkpoint = opt.Arc_path #checkpoint path passed in via argument - model not accessible??
         netArc_checkpoint = torch.load(netArc_checkpoint, map_location=torch.device("cpu"))
         self.netArc = netArc_checkpoint
         self.netArc = self.netArc.cuda()
@@ -54,6 +54,7 @@ class fsModel(BaseModel):
             pretrained_path =  opt.checkpoints_dir
             self.load_network(self.netG, 'G', opt.which_epoch, pretrained_path)
             return
+        # Discriminator
         self.netD = ProjectedDiscriminator(diffaug=False, interp224=False, **{})
         # self.netD.feature_network.requires_grad_(False)
         self.netD.cuda()

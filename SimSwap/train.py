@@ -211,6 +211,9 @@ if __name__ == '__main__':
             # Resize images for the identity embedding network.
             img_id_112 = F.interpolate(img_id, size=(112,112), mode='bicubic')
             # Pass the resized source images through the ArcFace model to obtain identity embeddings.
+            
+            # Identity info extracted by identity extractor to be injected
+            # into IIM of generator (bottleneck/middle blocks of Generator_Upsample_Adain)
             latent_id = model.netArc(img_id_112)
             # Normalize the embeddings to ensure they lie on a hypersphere, which is
             # beneficial for training stability and performance.
@@ -219,6 +222,7 @@ if __name__ == '__main__':
             # If it's the second interval, train the Discriminator.
             if interval:
                 # Generate fake result images using the Generator model.
+                # Injecting identity info into generator
                 img_fake = model.netG(src_image1, latent_id)
                 # Classify the fake images using the Discriminator and compute the loss.
                 gen_logits, _ = model.netD(img_fake.detach(), None)
