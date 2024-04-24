@@ -28,6 +28,8 @@ from util.plot import plot_batch
 from models.projected_model import fsModel
 from data.data_loader_Swapping import GetLoader
 
+import pytorch_ssim
+
 def str2bool(v):
     return v.lower() in ('true')
 
@@ -171,7 +173,7 @@ if __name__ == '__main__':
     imagenet_std    = torch.Tensor([0.229, 0.224, 0.225]).view(3,1,1)
     imagenet_mean   = torch.Tensor([0.485, 0.456, 0.406]).view(3,1,1)
 
-    train_loader    = GetLoader(opt.dataset,opt.batchSize,8,1234)
+    train_loader    = GetLoader(opt.dataset,opt.batchSize,4,1234)
 
     randindex = [i for i in range(opt.batchSize)]
     random.shuffle(randindex)
@@ -256,8 +258,13 @@ if __name__ == '__main__':
                 
                 # Compute feature matching loss to make sure the features are similar.
                 real_feat = model.netD.get_feature(src_image1)
-                feat_match_loss = model.criterionFeat(feat["3"], real_feat["3"])
-                
+
+                # feat_match_loss = model.criterionFeat(feat["3"], real_feat["3"])
+                # print('--------------------------------------------------------------------------------------------------------------------------------')
+                # print("Shapes of features: ", feat["3"].shape, real_feat["3"].shape)
+                ssim_loss = pytorch_ssim.SSIM(window_size = 11)
+                feat_match_loss = ssim_loss(feat["3"], real_feat["3"])
+
                 # Total Generator loss combines main loss, identity loss, and feature matching loss.
                 loss_G = loss_Gmain + loss_G_ID * opt.lambda_id + feat_match_loss * opt.lambda_feat
                 
