@@ -10,5 +10,11 @@
 1. Install the required packages:
 `pip install -r requirements.txt`
 
-## Setting up MobileFaceSwap
-1. Download and unzip the checkpoints from google drive at [https://drive.google.com/file/d/1ZIzGLDB15GRAZAbkfNR0hNWdgQpxeA_r/edit](https://drive.google.com/file/d/1ZIzGLDB15GRAZAbkfNR0hNWdgQpxeA_r/edit), put it under `MobileFaceSwap` directory with the name `checkpoints`.
+## Running SimSWAP
+1. The different experiments are conducted under different branches. Switch to corresponding branch for the corresponding experiment. 
+
+2. Go to the SimSwap subdirectory:
+```bash
+cd SimSwap
+```
+3. Follow the ReadMe file in SimSwap to run the code. 
