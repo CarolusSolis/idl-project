@@ -13,7 +13,8 @@
 ## Running SimSWAP
 1. The different experiments are conducted under different branches. Switch to corresponding branch for the corresponding experiment. 
 
-1. Go to the SimSwap subdirectory: ```bash
-  cd SimSwap
-  ```
-1. Follow the ReadMe file in SimSwap to run the code. 
+2. Go to the SimSwap subdirectory:
+```bash
+cd SimSwap
+```
+3. Follow the ReadMe file in SimSwap to run the code. 
